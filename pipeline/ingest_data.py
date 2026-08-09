@@ -1,9 +1,8 @@
 
-
+import click
 import pandas as pd
 from sqlalchemy import create_engine
 from tqdm.auto import tqdm
-
 
 
 dtype = {
@@ -22,43 +21,31 @@ dtype = {
     "tolls_amount": "float64",
     "improvement_surcharge": "float64",
     "total_amount": "float64",
-    "congestion_surcharge": "float64"
+    "congestion_surcharge": "float64",
 }
 
 parse_dates = [
     "tpep_pickup_datetime",
-    "tpep_dropoff_datetime"
+    "tpep_dropoff_datetime",
 ]
 
-pg_user = 'root'
-pg_pass = 'root'
-pg_host = 'localhost'
-pg_port = 5432
-pg_db = 'ny_taxi'
 
+@click.command()
+@click.option("--pg-user", "pg_user", default="root", show_default=True)
+@click.option("--pg-pass", "pg_pass", default="root", show_default=True)
+@click.option("--pg-host", "pg_host", default="localhost", show_default=True)
+@click.option("--pg-port", "pg_port", default=5432, type=int, show_default=True)
+@click.option("--pg-db", "pg_db", default="ny_taxi", show_default=True)
+@click.option("--year", default=2021, type=int, show_default=True)
+@click.option("--month", default=1, type=int, show_default=True)
+@click.option("--target-table", "target_table", default="yellow_taxi_data", show_default=True)
+@click.option("--chunksize", default=100000, type=int, show_default=True)
+def run(pg_user, pg_pass, pg_host, pg_port, pg_db, year, month, target_table, chunksize):
+    engine = create_engine(f"postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}")
+    url_prefix = "https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/"
 
-
-
-
-
-
-
-
-def run():
-    pg_user = 'root'
-    pg_db = 'ny_taxi'
-    pg_pass = 'root'
-    pg_host = 'localhost'
-    pg_port = 5432
-    year = 2021
-    month = 1
-    target_table = 'yellow_taxi_data'
-    chunksize = 100000
-
+    url = f"{url_prefix}/yellow_tripdata_{year:04d}-{month:02d}.csv.gz"
     engine = create_engine(f'postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}')
-    url_prefix = 'https://github.com/DataTalksClub/nyc-tlc-data/releases/download/yellow/'
-
-    url = f'{url_prefix}/yellow_tripdata_{year:04d}-{month:02d}.csv.gz'
 
     df_iter = pd.read_csv(
         url,
@@ -67,21 +54,23 @@ def run():
         iterator=True,
         chunksize=chunksize,
     )
+
     first = True
     for df_chunk in tqdm(df_iter):
         if first:
-           df_chunk.head(0).to_sql(
-               name=target_table, 
-               con=engine,
-                if_exists='replace'
+            df_chunk.head(0).to_sql(
+                name=target_table,
+                con=engine,
+                if_exists="replace"
             )
-           first = False
+            first = False
 
         df_chunk.to_sql(
-            name=target_table, 
-            con=engine, 
-            if_exists='append'
+            name=target_table,
+            con=engine,
+            if_exists="append"
         )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run()
